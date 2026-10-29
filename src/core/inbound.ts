@@ -136,10 +136,13 @@ async function handleClaimedUpdate(
   const address = classifyAddress(message, deps.config);
   // A bot replying to this bot does not wake it, so two bots cannot reply to each other forever.
   // The reply still went into context above. A bot has to @mention or /command this bot on purpose.
-  const addressed = address.addressed && address.how !== null && !(fromBot && address.how === "reply");
+  // BOT_WAKE_MODE=all lifts that: bots wake each other on replies and (with GROUP_WAKE_MODE=all) on anything.
+  // BOT_WAKE_MAX below still caps how often, so a loop between bots runs out.
+  const botsUnrestricted = fromBot && deps.config.botWakeMode === "all";
+  const addressed = address.addressed && address.how !== null && !(fromBot && !botsUnrestricted && address.how === "reply");
   // GROUP_WAKE_MODE=all: a person's group message that did not address the bot still wakes it, quietly,
   // so the assistant can decide whether to answer. Bots never wake another bot this way (no loops).
-  const ambient = !addressed && !fromBot && deps.config.groupWakeMode === "all" && message.chat.type !== "private";
+  const ambient = !addressed && (!fromBot || botsUnrestricted) && deps.config.groupWakeMode === "all" && message.chat.type !== "private";
   const how = addressed ? address.how : ambient ? "ambient" as const : null;
   if (!how) {
     deps.log({

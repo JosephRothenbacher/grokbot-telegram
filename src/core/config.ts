@@ -20,6 +20,9 @@ export interface Config {
   botWakeWindowMs: number;
   /** "addressed" (default): groups wake the bot only when addressed. "all": every person's group message wakes it, quietly. */
   groupWakeMode: "addressed" | "all";
+  /** "addressed" (default): a listed bot wakes this bot only by @mention or command. "all": also by replies and,
+   *  with GROUP_WAKE_MODE=all, by any message. BOT_WAKE_MAX still caps it. */
+  botWakeMode: "addressed" | "all";
   wakeCommands: ReadonlySet<string>;
   replyTokenTtlSeconds: number;
   typingRefreshMs: number;
@@ -192,6 +195,8 @@ export function loadConfig(env: EnvSource): Config {
   if (rejectedChats.length > 0) problems.push("ALLOWLIST_CHAT_IDS");
   const groupWakeRaw = readString(env, "GROUP_WAKE_MODE").toLowerCase();
   if (groupWakeRaw && groupWakeRaw !== "addressed" && groupWakeRaw !== "all") problems.push("GROUP_WAKE_MODE");
+  const botWakeRaw = readString(env, "BOT_WAKE_MODE").toLowerCase();
+  if (botWakeRaw && botWakeRaw !== "addressed" && botWakeRaw !== "all") problems.push("BOT_WAKE_MODE");
   const rejectedBots: string[] = [];
   const allowedBotIds = new Set(parseIdList(readString(env, "ALLOWED_BOT_IDS"), rejectedBots));
   if (rejectedBots.length > 0) problems.push("ALLOWED_BOT_IDS");
@@ -218,6 +223,7 @@ export function loadConfig(env: EnvSource): Config {
     allowedBotIds,
     botWakeMax: readBoundedInt(env, "BOT_WAKE_MAX", 3, 1, 100),
     groupWakeMode: groupWakeRaw === "all" ? "all" : "addressed",
+    botWakeMode: botWakeRaw === "all" ? "all" : "addressed",
     botWakeWindowMs: readBoundedInt(env, "BOT_WAKE_WINDOW_MS", 600_000, 60_000, 86_400_000),
     wakeCommands: new Set(parseCommandList(readString(env, "WAKE_COMMANDS"))),
     replyTokenTtlSeconds: readBoundedInt(env, "REPLY_TOKEN_TTL_SECONDS", 1800, 60, 3600),

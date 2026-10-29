@@ -241,7 +241,8 @@ When a basic group becomes a supergroup, the chat id changes. The bridge logs `c
 The bridge ignores messages from other bots unless their ids are in `ALLOWED_BOT_IDS`. Listed bots are accepted only in groups that pass the allowlist, never in direct messages. Turn on Bot-to-Bot Communication Mode for each bot in BotFather, because Telegram does not deliver one bot's messages to another otherwise.
 
 - A listed bot wakes this bot only on purpose: a command such as `/ask@ThisBot`, or an @mention. With privacy mode on, Telegram delivers the command form and replies.
-- A listed bot's reply to this bot does not wake it. The reply goes into context, so the next wake sees it. This keeps two bots from replying to each other forever.
+- With `BOT_WAKE_MODE=all`, a listed bot also wakes this bot by replying to it, and with `GROUP_WAKE_MODE=all` by any message. Only the `BOT_WAKE_MAX` cap stops a loop then.
+- A listed bot's reply to this bot does not wake it. (Default `BOT_WAKE_MODE=addressed`.) The reply goes into context, so the next wake sees it. This keeps two bots from replying to each other forever.
 - At most `BOT_WAKE_MAX` wakes started by bots per chat per `BOT_WAKE_WINDOW_MS`. People are not counted against it.
 - The wake carries `from.is_bot: true`.
 
@@ -272,6 +273,7 @@ Messages sent as a chat (anonymous group admins, or posts as a channel) carry `s
 | `ALLOWLIST_CHAT_IDS` | one of these | Comma-separated chat ids. |
 | `GROUP_WAKE_MODE` | no | `addressed` (default) wakes the bot in groups only when addressed. `all` also wakes it on every person's group message, quietly, so the assistant decides whether to answer. See [Group chats](#group-chats). |
 | `ALLOWED_BOT_IDS` | no | Comma-separated bot user ids whose messages are accepted in allowlisted groups. Empty (default) ignores every bot. See [Bot-to-bot](#bot-to-bot). |
+| `BOT_WAKE_MODE` | no | `addressed` (default): a listed bot wakes this bot only by @mention or command. `all`: also by replying to it, and with `GROUP_WAKE_MODE=all` by any message. `BOT_WAKE_MAX` still caps it. |
 | `BOT_WAKE_MAX` / `BOT_WAKE_WINDOW_MS` | no | Default 3 wakes per 10 minutes per chat started by bot senders. Stops bot loops. |
 | `PATH_PREFIX` | no | Mount prefix, for example `/bridge`. |
 | `WAKE_COMMANDS` | no | Default `/ask,/help`. |

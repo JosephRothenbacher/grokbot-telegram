@@ -127,6 +127,21 @@ describe("GROUP_WAKE_MODE=all", () => {
     expect(bridge.wakes()).toHaveLength(0);
   });
 
+  it("BOT_WAKE_MODE=all lets listed bots wake it by reply or by any message, still capped", async () => {
+    const bridge = app(testEnv({ GROUP_WAKE_MODE: "all", ALLOWED_BOT_IDS: "777", BOT_WAKE_MODE: "all", BOT_WAKE_MAX: "2" }));
+    await postUpdate(bridge.deps, bridge.tasks, fromBot(groupUpdate({ text: "I think tacos", updateId: 1 })));
+    await postUpdate(bridge.deps, bridge.tasks, fromBot(groupUpdate({
+      text: "agreed",
+      updateId: 2,
+      replyTo: { message_id: 3, text: "x", chat: { id: -500, type: "supergroup" }, from: { id: 999, is_bot: true, username: "testbot" } },
+    })));
+    await postUpdate(bridge.deps, bridge.tasks, fromBot(groupUpdate({ text: "one more", updateId: 3 })));
+    expect(bridge.wakes().map((wake) => wake.addressed_how)).toEqual(["ambient", "reply"]);
+    const unlisted = app(testEnv({ GROUP_WAKE_MODE: "all", BOT_WAKE_MODE: "all" }));
+    await postUpdate(unlisted.deps, unlisted.tasks, fromBot(groupUpdate({ text: "hi" })));
+    expect(unlisted.wakes()).toHaveLength(0);
+  });
+
   it("does not post a failure notice when an ambient wake is refused", async () => {
     const bridge = app(ALL, (call) => call.url.startsWith("https://grok.example/hook") ? new Response("no", { status: 403 }) : undefined);
     await postUpdate(bridge.deps, bridge.tasks, groupUpdate({ text: "hello all" }));
