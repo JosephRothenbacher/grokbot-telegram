@@ -13,6 +13,11 @@ export interface Config {
   pathPrefix: string;
   allowlistUserIds: ReadonlySet<string>;
   allowlistChatIds: ReadonlySet<string>;
+  /** Bot user ids whose group messages are accepted. Empty keeps every bot out. */
+  allowedBotIds: ReadonlySet<string>;
+  /** Most wakes started by bot senders per chat per window, to stop bot loops. */
+  botWakeMax: number;
+  botWakeWindowMs: number;
   wakeCommands: ReadonlySet<string>;
   replyTokenTtlSeconds: number;
   typingRefreshMs: number;
@@ -183,6 +188,9 @@ export function loadConfig(env: EnvSource): Config {
   const allowlistChatIds = new Set(parseIdList(readString(env, "ALLOWLIST_CHAT_IDS"), rejectedChats));
   if (rejectedUsers.length > 0) problems.push("ALLOWLIST_USER_IDS");
   if (rejectedChats.length > 0) problems.push("ALLOWLIST_CHAT_IDS");
+  const rejectedBots: string[] = [];
+  const allowedBotIds = new Set(parseIdList(readString(env, "ALLOWED_BOT_IDS"), rejectedBots));
+  if (rejectedBots.length > 0) problems.push("ALLOWED_BOT_IDS");
   const grokWebhookUrl = readString(env, "GROK_WEBHOOK_URL");
   const allowInsecureWebhook = readBool(env, "ALLOW_INSECURE_WEBHOOK");
   if (grokWebhookUrl && !isUsableGrokUrl(grokWebhookUrl, allowInsecureWebhook)) problems.push("GROK_WEBHOOK_URL");
@@ -203,6 +211,9 @@ export function loadConfig(env: EnvSource): Config {
     pathPrefix,
     allowlistUserIds,
     allowlistChatIds,
+    allowedBotIds,
+    botWakeMax: readBoundedInt(env, "BOT_WAKE_MAX", 3, 1, 100),
+    botWakeWindowMs: readBoundedInt(env, "BOT_WAKE_WINDOW_MS", 600_000, 60_000, 86_400_000),
     wakeCommands: new Set(parseCommandList(readString(env, "WAKE_COMMANDS"))),
     replyTokenTtlSeconds: readBoundedInt(env, "REPLY_TOKEN_TTL_SECONDS", 1800, 60, 3600),
     typingRefreshMs,

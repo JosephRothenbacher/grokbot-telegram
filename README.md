@@ -234,6 +234,15 @@ Forum topics keep their own context and typing state. In a supergroup with topic
 
 When a basic group becomes a supergroup, the chat id changes. The bridge logs `chat_migrated`. Update `ALLOWLIST_CHAT_IDS` with the new id.
 
+## Bot-to-bot
+
+The bridge ignores messages from other bots unless their ids are in `ALLOWED_BOT_IDS`. Listed bots are accepted only in groups that pass the allowlist, never in direct messages. Turn on Bot-to-Bot Communication Mode for each bot in BotFather, because Telegram does not deliver one bot's messages to another otherwise.
+
+- A listed bot wakes this bot only on purpose: a command such as `/ask@ThisBot`, or an @mention. With privacy mode on, Telegram delivers the command form and replies.
+- A listed bot's reply to this bot does not wake it. The reply goes into context, so the next wake sees it. This keeps two bots from replying to each other forever.
+- At most `BOT_WAKE_MAX` wakes started by bots per chat per `BOT_WAKE_WINDOW_MS`. People are not counted against it.
+- The wake carries `from.is_bot: true`.
+
 ## Allowlist
 
 - A **user id** admits that person in direct messages and in any chat they speak in. A teammate's user id also opens a private chat with the bot, so use the group's chat id to admit only the group.
@@ -259,6 +268,8 @@ Messages sent as a chat (anonymous group admins, or posts as a channel) carry `s
 | `PUBLIC_BASE_URL` | yes | `https` origin for `reply.send_url` (`http` for localhost). Origin only. |
 | `ALLOWLIST_USER_IDS` | one of these | Comma-separated numeric user ids. |
 | `ALLOWLIST_CHAT_IDS` | one of these | Comma-separated chat ids. |
+| `ALLOWED_BOT_IDS` | no | Comma-separated bot user ids whose messages are accepted in allowlisted groups. Empty (default) ignores every bot. See [Bot-to-bot](#bot-to-bot). |
+| `BOT_WAKE_MAX` / `BOT_WAKE_WINDOW_MS` | no | Default 3 wakes per 10 minutes per chat started by bot senders. Stops bot loops. |
 | `PATH_PREFIX` | no | Mount prefix, for example `/bridge`. |
 | `WAKE_COMMANDS` | no | Default `/ask,/help`. |
 | `OUTBOUND_API_KEY` | no | Key for proactive sends. At least 32 characters. |

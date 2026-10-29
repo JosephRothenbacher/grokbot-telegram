@@ -6,7 +6,7 @@ import { runInBackground, type AppDeps } from "./deps.js";
 import { forwardToGrok } from "./grok.js";
 import { json, readLimitedBody } from "./http.js";
 import { buildWakeEvent, toContextMessage } from "./payload.js";
-import { MESSAGE_CLAIM_TTL_MS, rateChatKey, rateUserKey, scopeKey } from "./store.js";
+import { MESSAGE_CLAIM_TTL_MS, rateBotKey, rateChatKey, rateUserKey, scopeKey } from "./store.js";
 import { fastGreetingReply } from "./text.js";
 import { TELEGRAM_SECRET_HEADER, type TelegramMessage, type TelegramUpdate, type TypingStart } from "./types.js";
 
@@ -107,7 +107,9 @@ async function handleClaimedUpdate(
     return json(200, { ok: true });
   }
 
-  if (sender?.is_bot) {
+  // Bots are ignored unless listed in ALLOWED_BOT_IDS, and even then only in groups.
+  const fromBot = sender?.is_bot === true;
+  if (fromBot && (message.chat.type === "private" || !userId || !deps.config.allowedBotIds.has(userId))) {
     deps.log({ event: "update_dropped", reason: "ignored_bot", update_id: update.update_id, chat_id: chatId });
     return json(200, { ok: true });
   }
@@ -132,7 +134,10 @@ async function handleClaimedUpdate(
   }
 
   const address = classifyAddress(message, deps.config);
-  if (!address.addressed || !address.how) {
+  // A bot replying to this bot does not wake it, so two bots cannot reply to each other forever.
+  // The reply still went into context above. A bot has to @mention or /command this bot on purpose.
+  const addressed = address.addressed && address.how !== null && !(fromBot && address.how === "reply");
+  if (!addressed || !address.how) {
     deps.log({
       event: "update_dropped",
       reason: "not_addressed",
@@ -147,7 +152,10 @@ async function handleClaimedUpdate(
   const userRate = userId
     ? await deps.store.hitRate(rateUserKey(chatId, userId), now, deps.config.rateLimitWindowMs, deps.config.rateLimitMax)
     : { allowed: true, count: 0 };
-  if (!chatRate.allowed || !userRate.allowed) {
+  const botRate = fromBot
+    ? await deps.store.hitRate(rateBotKey(chatId), now, deps.config.botWakeWindowMs, deps.config.botWakeMax)
+    : { allowed: true, count: 0 };
+  if (!chatRate.allowed || !userRate.allowed || !botRate.allowed) {
     deps.log({
       event: "update_dropped",
       reason: "rate_limited",

@@ -72,6 +72,10 @@ export function rateChatKey(chatId: string): string {
   return `rate:chat:${chatId}`;
 }
 
+export function rateBotKey(chatId: string): string {
+  return `rate:chat:${chatId}:bots`;
+}
+
 export function rateUserKey(chatId: string, userId: string): string {
   return `rate:chat:${chatId}:user:${userId}`;
 }
