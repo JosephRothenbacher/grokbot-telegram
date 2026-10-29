@@ -183,6 +183,8 @@ export interface ReplyClaims {
   thread_id: number | null;
   wake_id: string;
   exp: number;
+  /** Set on ambient wakes, which start with no typing. The first heartbeat starts it. */
+  quiet?: true;
 }
 
 export type AddressHow = WakeEvent["addressed_how"];

@@ -64,6 +64,8 @@ export async function buildWakeEvent(options: {
   command: string | null;
   shortTerm: ContextMessage[];
   nowMs: number;
+  /** An ambient wake: no reaction or typing until the assistant sends a heartbeat. */
+  quiet?: boolean;
 }): Promise<WakeEvent | null> {
   const { config, message } = options;
   // Never derive send_url from the request's Host header: the assistant sends its
@@ -80,6 +82,7 @@ export async function buildWakeEvent(options: {
     thread_id: threadId,
     wake_id: wakeId,
     exp: expSeconds,
+    ...(options.quiet ? { quiet: true as const } : {}),
   };
   const token = await signReplyToken(config.replyTokenSecret, claims);
   const replyTo = message.reply_to_message

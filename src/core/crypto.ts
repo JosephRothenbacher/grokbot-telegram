@@ -114,6 +114,7 @@ function isReplyClaims(value: unknown): value is ReplyClaims {
     record.wake_id.length > 0 &&
     record.wake_id.length <= 80 &&
     typeof record.exp === "number" &&
-    Number.isFinite(record.exp)
+    Number.isFinite(record.exp) &&
+    (record.quiet === undefined || record.quiet === true)
   );
 }

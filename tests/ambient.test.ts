@@ -77,6 +77,38 @@ describe("GROUP_WAKE_MODE=all", () => {
     expect(bridge.telegram("setMessageReaction")).toHaveLength(0);
   });
 
+  it("starts typing (no 👀) on the first heartbeat of an ambient wake, and the answer ends it", async () => {
+    const bridge = app(ALL);
+    await postUpdate(bridge.deps, bridge.tasks, groupUpdate({ text: "can someone look up the game time?" }));
+    const reply = bridge.wakes()[0]!.reply;
+    expect(bridge.telegram("sendChatAction")).toHaveLength(0);
+
+    const beat = await bridge.send(reply, {}, "/typing/heartbeat");
+    expect(await beat.json()).toMatchObject({ ok: true, active: true });
+    expect(bridge.telegram("sendChatAction")).toHaveLength(1);
+    expect(bridge.telegram("setMessageReaction")).toHaveLength(0);
+
+    await bridge.send(reply, {}, "/typing/heartbeat");
+    expect(bridge.telegram("sendChatAction").length).toBeLessThanOrEqual(2);
+
+    const final = await bridge.send(reply, { text: "7:30 tonight.", final: true });
+    expect(final.status).toBe(200);
+    expect(bridge.telegram("setMessageReaction")).toHaveLength(0);
+    const after = await bridge.send(reply, {}, "/typing/heartbeat");
+    expect(after.status).toBe(401);
+  });
+
+  it("does not restart typing for an addressed wake that was stopped", async () => {
+    const bridge = app(ALL);
+    await postUpdate(bridge.deps, bridge.tasks, groupUpdate({ text: "@testbot hi" }));
+    const reply = bridge.wakes()[0]!.reply;
+    await bridge.send(reply, {}, "/typing/stop");
+    const before = bridge.telegram("sendChatAction").length;
+    const beat = await bridge.send(reply, {}, "/typing/heartbeat");
+    expect(await beat.json()).toMatchObject({ ok: true, active: false });
+    expect(bridge.telegram("sendChatAction")).toHaveLength(before);
+  });
+
   it("still shows 👀 and typing when the bot is addressed", async () => {
     const bridge = app(ALL);
     await postUpdate(bridge.deps, bridge.tasks, groupUpdate({ text: "@testbot hi" }));

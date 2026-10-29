@@ -191,8 +191,30 @@ export async function handleTypingHeartbeat(request: Request, deps: AppDeps): Pr
   const auth = await authorize(credential, deps, chatId, threadId);
   if (!auth.ok) return auth.response;
   if (!auth.wakeId) return json(400, { ok: false, error: "wake_id_required" });
-  const result = await deps.typing.touch(scopeKey(chatId, threadId), auth.wakeId);
-  deps.log({ event: "typing_heartbeat", chat_id: chatId, wake_id: auth.wakeId, active: result.extended });
+  const scope = scopeKey(chatId, threadId);
+  let result = await deps.typing.touch(scope, auth.wakeId);
+  let started = false;
+  if (!result.extended && auth.quiet) {
+    // An ambient wake shows nothing until the assistant decides to answer. Its first heartbeat
+    // says it is answering, so start typing now (no reaction). The final send ends it as usual.
+    const now = deps.now();
+    await deps.typing.start({
+      scopeKey: scope,
+      chatId,
+      threadId,
+      refreshMs: deps.config.typingRefreshMs,
+      wakeId: auth.wakeId,
+      messageId: null,
+      reaction: null,
+      draft: false,
+      startedAt: now,
+      leaseMs: deps.config.typingLeaseMs,
+      deadline: Math.min(now + deps.config.typingMaxMs, auth.expiresAtMs),
+    });
+    result = { active: true, extended: true };
+    started = true;
+  }
+  deps.log({ event: "typing_heartbeat", chat_id: chatId, wake_id: auth.wakeId, active: result.extended, started });
   return json(200, { ok: true, active: result.extended });
 }
 
@@ -259,7 +281,7 @@ async function authorize(
   threadId: number | null,
   options: { allowClosed?: boolean } = {},
 ): Promise<
-  | { ok: true; wakeId: string | null; expiresAtMs: number; closed: boolean }
+  | { ok: true; wakeId: string | null; expiresAtMs: number; closed: boolean; quiet: boolean }
   | { ok: false; response: Response }
 > {
   if (credential.kind === "token") {
@@ -272,13 +294,13 @@ async function authorize(
     if (closed && !options.allowClosed) {
       return { ok: false, response: json(401, { ok: false, error: "wake_closed" }) };
     }
-    return { ok: true, wakeId: claims.wake_id, expiresAtMs: claims.exp * 1000, closed };
+    return { ok: true, wakeId: claims.wake_id, expiresAtMs: claims.exp * 1000, closed, quiet: claims.quiet === true };
   }
 
   if (!isOutboundChatAllowed(chatId, deps.config)) {
     return { ok: false, response: json(403, { ok: false, error: "not_allowlisted" }) };
   }
-  return { ok: true, wakeId: null, expiresAtMs: deps.now() + 60_000, closed: false };
+  return { ok: true, wakeId: null, expiresAtMs: deps.now() + 60_000, closed: false, quiet: false };
 }
 
 async function readJson(

@@ -196,6 +196,7 @@ async function handleClaimedUpdate(
     command: address.command,
     shortTerm,
     nowMs: now,
+    quiet: ambient,
   });
   if (!wake) {
     deps.log({
