@@ -29,7 +29,7 @@
     "update_id": { "type": "integer" },
     "timestamp": { "type": "string", "format": "date-time" },
     "edited": { "type": "boolean", "description": "True when the wake came from an edited_message whose original never woke the bot. Each Telegram message wakes at most once: edits of a message that already woke the bot are not forwarded." },
-    "addressed_how": { "enum": ["private", "mention", "command", "reply"] },
+    "addressed_how": { "enum": ["private", "mention", "command", "reply", "ambient"], "description": "ambient: a group message that did not address the bot, forwarded because GROUP_WAKE_MODE=all. No reaction or typing is shown. Reply only if the message is for you; otherwise call reply.typing_stop_url." },
     "command": { "type": ["string", "null"] },
     "chat": {
       "type": "object",

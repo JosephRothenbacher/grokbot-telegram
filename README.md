@@ -226,6 +226,8 @@ In a private chat, every message from an allowlisted sender or chat wakes the bo
 - starts with a command from `WAKE_COMMANDS`, such as `/ask` or `/ask@YourBot`, or
 - replies to one of the bot's own messages.
 
+With `GROUP_WAKE_MODE=all`, every message a person sends in an allowlisted group also wakes the bot, with `addressed_how: "ambient"`. The bridge shows no 👀 or typing for these, and posts no failure notice, because the assistant may decide not to answer. The routine replies when the message is for it, and otherwise posts once to `reply.typing_stop_url`. Messages from bots never wake the bot this way. Each ambient message is a routine run, so every bot in the group runs once per message.
+
 The bridge keeps other group messages in a per-topic buffer (`CONTEXT_LIMIT`, 10 by default) and attaches them to the next wake as context. It ignores messages from other bots. In Telegram's default privacy mode the bot receives `/ask@YourBot`, replies to its own messages, and service messages. Turn privacy off with BotFather `/setprivacy`, or make the bot an admin, then remove the bot from the group and add it again.
 
 When the bot is in the groups you want, send BotFather `/setjoingroups` and choose Disable to keep it to those groups.
@@ -268,6 +270,7 @@ Messages sent as a chat (anonymous group admins, or posts as a channel) carry `s
 | `PUBLIC_BASE_URL` | yes | `https` origin for `reply.send_url` (`http` for localhost). Origin only. |
 | `ALLOWLIST_USER_IDS` | one of these | Comma-separated numeric user ids. |
 | `ALLOWLIST_CHAT_IDS` | one of these | Comma-separated chat ids. |
+| `GROUP_WAKE_MODE` | no | `addressed` (default) wakes the bot in groups only when addressed. `all` also wakes it on every person's group message, quietly, so the assistant decides whether to answer. See [Group chats](#group-chats). |
 | `ALLOWED_BOT_IDS` | no | Comma-separated bot user ids whose messages are accepted in allowlisted groups. Empty (default) ignores every bot. See [Bot-to-bot](#bot-to-bot). |
 | `BOT_WAKE_MAX` / `BOT_WAKE_WINDOW_MS` | no | Default 3 wakes per 10 minutes per chat started by bot senders. Stops bot loops. |
 | `PATH_PREFIX` | no | Mount prefix, for example `/bridge`. |

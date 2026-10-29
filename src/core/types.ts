@@ -116,7 +116,7 @@ export interface WakeEvent {
   update_id: number;
   timestamp: string;
   edited: boolean;
-  addressed_how: "private" | "mention" | "command" | "reply";
+  addressed_how: "private" | "mention" | "command" | "reply" | "ambient";
   command: string | null;
   chat: {
     id: string;

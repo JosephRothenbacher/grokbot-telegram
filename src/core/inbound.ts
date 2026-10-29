@@ -137,7 +137,11 @@ async function handleClaimedUpdate(
   // A bot replying to this bot does not wake it, so two bots cannot reply to each other forever.
   // The reply still went into context above. A bot has to @mention or /command this bot on purpose.
   const addressed = address.addressed && address.how !== null && !(fromBot && address.how === "reply");
-  if (!addressed || !address.how) {
+  // GROUP_WAKE_MODE=all: a person's group message that did not address the bot still wakes it, quietly,
+  // so the assistant can decide whether to answer. Bots never wake another bot this way (no loops).
+  const ambient = !addressed && !fromBot && deps.config.groupWakeMode === "all" && message.chat.type !== "private";
+  const how = addressed ? address.how : ambient ? "ambient" as const : null;
+  if (!how) {
     deps.log({
       event: "update_dropped",
       reason: "not_addressed",
@@ -166,7 +170,7 @@ async function handleClaimedUpdate(
     return json(200, { ok: true });
   }
 
-  const greeting = deps.config.fastGreeting
+  const greeting = deps.config.fastGreeting && !ambient
     ? fastGreetingReply(messageText(message), deps.config.telegramBotUsername)
     : null;
   if (greeting) {
@@ -188,7 +192,7 @@ async function handleClaimedUpdate(
     message,
     edited,
     updateId: update.update_id,
-    addressedHow: address.how,
+    addressedHow: how,
     command: address.command,
     shortTerm,
     nowMs: now,
@@ -232,11 +236,11 @@ async function handleClaimedUpdate(
     update_id: update.update_id,
     chat_id: chatId,
     user_id: userId,
-    addressed_how: address.how,
+    addressed_how: how,
     edited,
   });
 
-  runInBackground(deps, "wake_background_failed", () => deliverWake(deps, message, session, wake, chatId, threadId));
+  runInBackground(deps, "wake_background_failed", () => deliverWake(deps, message, session, wake, chatId, threadId, ambient));
   return json(200, { ok: true });
 }
 
@@ -269,14 +273,18 @@ async function deliverWake(
   wake: NonNullable<Awaited<ReturnType<typeof buildWakeEvent>>>,
   chatId: string,
   threadId: number | null,
+  quiet = false,
 ): Promise<void> {
   // Reaction, typing and the optional ack are cosmetic. A failure there must not stop the wake.
-  try {
-    await deps.typing.start(session);
-  } catch (err) {
-    deps.log({ event: "typing_failed", chat_id: chatId, error: safeErrorMessage(err, []) });
+  // A quiet (ambient) wake shows nothing: the assistant may well decide not to answer.
+  if (!quiet) {
+    try {
+      await deps.typing.start(session);
+    } catch (err) {
+      deps.log({ event: "typing_failed", chat_id: chatId, error: safeErrorMessage(err, []) });
+    }
   }
-  if (deps.config.bridgeAck) {
+  if (deps.config.bridgeAck && !quiet) {
     deps.log({ event: "bridge_ack", chat_id: chatId, update_id: wake.update_id });
     await deps.telegram.sendMessage({
       chat_id: chatId,
@@ -313,7 +321,8 @@ async function deliverWake(
   await deps.typing.stop(session.scopeKey, session.wakeId).catch(() => undefined);
   // deliverWake runs once per wake (update_id is deduped first), so this line is sent at most once.
   const text = deps.config.forwardFailureText;
-  if (!text) return;
+  // Nobody asked a quiet wake anything, so a failure notice would be noise.
+  if (!text || quiet) return;
   const sent = await deps.telegram.sendMessage({
     chat_id: chatId,
     text,
